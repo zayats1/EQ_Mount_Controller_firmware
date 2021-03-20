@@ -22,11 +22,12 @@ DATA_TRANSPORT short dec_degree = 90;
 DATA_TRANSPORT short polar_degree = 90;
 DATA_TRANSPORT short between_step_delay = 300;
 DATA_TRANSPORT char ctrl = 'S';
+DATA_TRANSPORT bool hold_motor_position = 0;
 
 const char EndLine = '\n';
 
 static void data_procesing();
-static void goto_position();
+static void goto_position_loop();
 
 // Main runs in it's own thread
 
@@ -49,26 +50,26 @@ int main() {
   DS.Init(ServoConf);
 
   DataProcesing.start(&data_procesing);
-  while (1) {
-    goto_position();
-  }
+  goto_position_loop();  //Runs on main thread
 }
 
-void diurnal_motion(short degree, short delay, char _ctrl) {
-
+void diurnal_motion(uint8_t step, short degree, short delay, char _ctrl) {
   // uint16_t total_steps = degree / 1.8; // total_steps = degree/degre
   // per_steps (fs)
-
   // uint16_t total_steps = uint16_t(round(degree / 1.8));  // @Todo
-  for (uint8_t step = 1; step < 5; ++step) { //? why 5
-    PolarAxisMotor.RunningBP(step, 'W', _ctrl);
-    thread_sleep_for(delay);
-  }
+  PolarAxisMotor.RunningBP(step, 'F', _ctrl);
+  thread_sleep_for(delay);
 }
 
-void goto_position() {
-  DS.SetPosition(dec_degree);
-  diurnal_motion(polar_degree, between_step_delay, ctrl);
+void goto_position_loop() {
+  uint8_t step = 1;
+  while (1) {
+    if (step == 5) step = 1;
+    DS.SetPosition(dec_degree);
+    diurnal_motion(step, polar_degree, between_step_delay, ctrl);
+    if (!hold_motor_position)
+      ++step;
+  }
 }
 
 // converts 3 chars to  one short
@@ -92,6 +93,7 @@ void send_data_to_motors(char chars[4]) {
   case 'S':
     ctrl = chars[0];
     // send delay
+    hold_motor_position = 0;
     between_step_delay = chars_to_short(chars[1], chars[2], chars[3]);
     break;
 
@@ -100,15 +102,16 @@ void send_data_to_motors(char chars[4]) {
     dec_degree = chars_to_short(chars[1], chars[2], chars[3]);
     break;
 
+  case 'H':
+    hold_motor_position = 1;
   default:
     break;
   }
 }
 
-// example data  is P180 or  F200 or B010, F010, D025 ,D090, D180, D135 where
-// P -- Polar axis,180 - RA degree F - dir for motor(Forward) D = Dec. axis 125
-// is a dec.degree
-// To stop  motor -- write S000
+// example data  is P180 or  F200 or B010 or H450, F010, D025 ,D090, D180, D135
+// where P -- Polar axis,180 - RA degree F - dir for motor(Forward) D = Dec.
+// axis 125 is a dec.degree To stop  motor -- write S000
 
 void data_procesing() {
   char buffer[4] = {0}; // Buffer for receiving information
