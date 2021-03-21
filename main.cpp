@@ -50,21 +50,22 @@ int main() {
   DS.Init(ServoConf);
 
   DataProcesing.start(&data_procesing);
-  goto_position_loop();  //Runs on main thread
+  goto_position_loop(); // Runs on main thread
 }
 
 void diurnal_motion(uint8_t step, short degree, short delay, char _ctrl) {
   // uint16_t total_steps = degree / 1.8; // total_steps = degree/degre
   // per_steps (fs)
   // uint16_t total_steps = uint16_t(round(degree / 1.8));  // @Todo
-  PolarAxisMotor.RunningBP(step, 'F', _ctrl);
+  PolarAxisMotor.RunningBP(step, 'H', _ctrl);
   thread_sleep_for(delay);
 }
 
 void goto_position_loop() {
   uint8_t step = 1;
   while (1) {
-    if (step == 5) step = 1;
+    if (step > PolarAxisMotor.max_steps)
+      step = 1;
     DS.SetPosition(dec_degree);
     diurnal_motion(step, polar_degree, between_step_delay, ctrl);
     if (!hold_motor_position)

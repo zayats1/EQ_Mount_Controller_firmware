@@ -17,9 +17,6 @@ void StrangeServo::Init(const ServoConfig &sc) {
   _mow_precesion = sc.MovingPrecesion;
 
   _ctrl.period_us(sc.PulsePeriodUs);
-  thread_sleep_for(50); // for debug
-  _ctrl.pulsewidth_us(
-      dur_calc(_min_angle)); // setting position to  minimal defined angle
 }
 
 void StrangeServo::SetPosition(unsigned short pos_angle) {
