@@ -1,5 +1,6 @@
 #include "StepperMotorMbed.hpp"
 #include "mbed.h"
+//Todo make enum with names
 
 StepperMotorUP::StepperMotorUP(PinName one, PinName two, PinName three,
                                PinName four)

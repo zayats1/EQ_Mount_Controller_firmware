@@ -1,6 +1,5 @@
 #include "StepperMotorMbed.hpp"
 #include "StrangeServo.hpp"
-#include "map_constrain.h"
 #include "mbed.h"
 #include <cstdint>
 #include <cstdio>
@@ -16,7 +15,7 @@ StrangeServo DS = StrangeServo(PB_3);
 
 StepperMotorBP PolarAxisMotor = StepperMotorBP(PA_7, PA_6, PA_5, PA_4);
 
-Thread DataProcesing;
+Thread DeclinationMotion, DiurnalMotion;
 
 DATA_TRANSPORT short dec_degree = 90;
 DATA_TRANSPORT short polar_degree = 90;
@@ -27,7 +26,8 @@ DATA_TRANSPORT bool hold_motor_position = 0;
 const char EndLine = '\n';
 
 static void data_procesing();
-static void goto_position_loop();
+static void diurnal_motion();     // Stepper motor
+static void declination_motion(); // Digital ervo
 
 // Main runs in it's own thread
 
@@ -49,39 +49,39 @@ int main() {
 
   DS.Init(ServoConf);
 
-  DataProcesing.start(&data_procesing);
-  goto_position_loop(); // Runs on main thread
+  DiurnalMotion.start(&diurnal_motion);
+  DeclinationMotion.start(&declination_motion);
+
+  while (1) {
+    data_procesing();
+  }
 }
 
-void diurnal_motion(uint8_t step, short degree, short delay, char _ctrl) {
-  // uint16_t total_steps = degree / 1.8; // total_steps = degree/degre
-  // per_steps (fs)
-  // uint16_t total_steps = uint16_t(round(degree / 1.8));  // @Todo
-  PolarAxisMotor.RunningBP(step, 'H', _ctrl);
-  thread_sleep_for(delay);
-}
-
-void goto_position_loop() {
+void diurnal_motion() {
   uint8_t step = 1;
   while (1) {
     if (step > PolarAxisMotor.max_steps)
       step = 1;
-    DS.SetPosition(dec_degree);
-    diurnal_motion(step, polar_degree, between_step_delay, ctrl);
+    PolarAxisMotor.RunningBP(step, 'H', ctrl);
+    thread_sleep_for(between_step_delay);
     if (!hold_motor_position)
       ++step;
   }
 }
 
+static void declination_motion() {
+  while (1) {
+    DS.SetPosition(dec_degree);
+  }
+}
+
 // converts 3 chars to  one short
-short chars_to_short(const char one_num, const char two_num,
-                     const char third_num) {
+static short chars_to_short(const char one_num, const char two_num,
+                            const char third_num) {
   return ((one_num - '0') * 100) + ((two_num - '0') * 10) + (third_num - '0');
 }
 
-// "cooks" and sends data to mail
-
-void send_data_to_motors(char chars[4]) {
+static void send_data_to_motors(char chars[4]) {
   switch (chars[0]) {
   // for stepper motor
   case 'P':
@@ -93,7 +93,6 @@ void send_data_to_motors(char chars[4]) {
   case 'B':
   case 'S':
     ctrl = chars[0];
-    // send delay
     hold_motor_position = 0;
     between_step_delay = chars_to_short(chars[1], chars[2], chars[3]);
     break;
@@ -114,7 +113,7 @@ void send_data_to_motors(char chars[4]) {
 // where P -- Polar axis,180 - RA degree F - dir for motor(Forward) D = Dec.
 // axis 125 is a dec.degree To stop  motor -- write S000
 
-void data_procesing() {
+static void data_procesing() {
   char buffer[4] = {0}; // Buffer for receiving information
   while (1) {
     if (serial_port.readable()) {

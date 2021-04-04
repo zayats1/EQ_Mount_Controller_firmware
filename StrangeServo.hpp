@@ -13,7 +13,7 @@ const short LOW_PREC = 10;
 
 /*
 Default parameters, please change  this values if you  servo needs
-another parameters
+another parameters for lazy makers :=)
 */
 typedef struct {
   /*
@@ -25,8 +25,7 @@ typedef struct {
   short MovingPrecesion = PRETTY; // default value
 
   unsigned short PulsePeriodUs = 20000; // T = 1/frequency(khz)  * 1000
-
-  // for lazy makers :=)
+  
   uint8_t MinRotatoinAngle = 0;
   short MaxRotatoinAngle = 180; // 2.5
 } ServoConfig;
